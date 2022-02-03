@@ -1,7 +1,8 @@
-import superagent from 'superagent';
+import superagent, {Request, Response, SuperAgentRequest} from 'superagent';
 import _ from 'lodash';
 import {Utils} from '../../lib/utils'
-import Logger from '../../lib/logger';
+import  { Logger, TestRunLogger } from '../../lib/logger';
+import { interfaces, TestRequest, TestResponse } from "../../modules/interfaces";
 
 
 interface ObjInterface {
@@ -17,7 +18,7 @@ export class DASS {
   username: string = "";
   gPassword: string = ""; // Global password for all the tests
   password: string = "";
-  method: any = ""
+  method: SuperAgentRequest;
   saveResVar: ObjInterface = {}
 
 
@@ -27,9 +28,9 @@ export class DASS {
     this.gPassword = password
   }
 
-  prepareRequest(entry: any) {
+  prepareRequest(entry: [interfaces, TestRequest, TestResponse, number, number]) {
     Logger.debug(`prepareRequest method entry - ${JSON.stringify(entry)}`)
-    let request = entry[1];
+    let request: TestRequest = entry[1];
 
     // set the user basic auth for api call
     this.setLogin(request)
@@ -40,54 +41,61 @@ export class DASS {
 
     // Prepare the payload
     this.createPayload(request);
-    Logger.debug(`DASS API REQUEST : ${JSON.stringify(request)}`)
-
+    Logger.info(`[DASS: [prepareRequest]: DASS API REQUEST: ${JSON.stringify(request)}`);
+    TestRunLogger.info(`DASS API REQUEST: ${JSON.stringify(request)}`)
     if (request.method == "GET") {
       this.method = superagent.get(this.url + request.path);
     } else if (request.method == "PUT") {
-      this.method = superagent.put(this.url + request.path).send(request.payload)
+      this.method = superagent.put(this.url + request.path).send(request.payload);
     } else if (request.method == "POST") {
-      this.method = superagent.post(this.url + request.path).send(request.payload)
+      this.method = superagent.post(this.url + request.path).send(request.payload);
     } else if (request.method == "DELETE") {
-      this.method = superagent.delete(this.url + request.path)
+      this.method = superagent.delete(this.url + request.path);
     } else {
-      Logger.info("Invalid method provided in testcase")
+      Logger.info("Invalid method provided in testcase");
     }
 
   }
 
-  async sendRequestAndVerify(entry: any, pause: any) {
-    let expectedResponse = entry[2];
-    let timeout = entry[3];
-    Logger.debug(`sendRequestAndVerify entry : ${JSON.stringify(entry)}`)
-    Logger.debug(`sendRequestAndVerify pause : ${pause}`)
-    Logger.debug(`sendRequestAndVerify timeout : ${timeout}`)
-    await Utils.sTimeout(pause)
-    await Utils.sTimeout(timeout)
+  async sendRequestAndVerify(entry: [interfaces, TestRequest, TestResponse, number, number], pause: number) {
+    let expectedResponse: TestResponse = entry[2];
+    let timeout: number = entry[3];
+    Logger.debug(`[DASS]: [sendRequestAndVerify]: called`);
+    Logger.debug(`[DASS]: [sendRequestAndVerify]: entry : ${JSON.stringify(entry)}`);
+    Logger.debug(`[DASS]: [sendRequestAndVerify]: pause : ${pause}`);
+    Logger.debug(`[DASS]: [sendRequestAndVerify]: timeout : ${timeout}`);
+    await Utils.sTimeout(pause);
+    await Utils.sTimeout(timeout);
 
     try {
-      let response: any = await this.method.auth(this.username, this.password);
+      let response: Response = await this.method.auth(this.username, this.password);
       let responseObj: any;
       try {
         responseObj = JSON.parse(response.text);
       } catch (e) {
         responseObj = response.text;
       }
-      Logger.debug(`DASS API RESPONSE : ${JSON.stringify(responseObj)}`)
+      Logger.info(`[DASS]: [sendRequestAndVerify]: DASS API RESPONSE: ${JSON.stringify(responseObj)}`);
+      TestRunLogger.info(`DASS API RESPONSE: ${JSON.stringify(responseObj)}`);
+
 
       // Save responses 
-      this.saveResponse(expectedResponse, responseObj)
+      this.saveResponse(expectedResponse, responseObj);
 
       // Verify the success response
       let result = this.verifyResponse(expectedResponse, response, responseObj);
+      Logger.debug(`[DASS]: [sendRequestAndVerify]:  ended`);
       return result
 
     } catch (err: any) {
-      Logger.debug(`DASS API RESPONSE ERROR : ${JSON.stringify(err)}`)
+      Logger.info(`DASS API RESPONSE ERROR: ${JSON.stringify(err)}`);
+      TestRunLogger.info(`DASS API RESPONSE ERROR: ${JSON.stringify(err)}`);
       // Verify error response 
       let result = this.verifyResponse(expectedResponse, err, err.response);
+      Logger.debug(`[DASS]: [sendRequestAndVerify]:  ended`);
       return result
     }
+    
 
 
   }
@@ -95,8 +103,8 @@ export class DASS {
 
 
   // append the path to request
-  appendPath(request: any) {
-    Logger.debug(`appendPath method called`)
+  appendPath(request: TestRequest) {
+    Logger.debug(`[DASS]: [appendPath]: called`);
     if (!_.isUndefined(request.appendFrom)) {
       let props = request.appendFrom.split(".");
       let temp = { ...this.saveResVar }
@@ -108,25 +116,25 @@ export class DASS {
         }
         let append = temp;
         if (request.func != undefined) append = request.func(append); //execute eventual function on received data
-        Logger.debug(`Request Path : ${request.path}`)
-        Logger.debug(`append : ${append}`)
+        Logger.debug(`[DASS]: [appendPath]: Request Path : ${request.path}`)
+        Logger.debug(`[DASS]: [appendPath]: Append : ${append}`)
         if (request.orig_path == undefined) request.orig_path = request.path; //in case of repeats
         request.path = request.orig_path + append; //append the eventual restResponse
-        Logger.debug(`Request Append Path : ${request.path}`)
-
+        Logger.debug(`[DASS]: [appendPath]: Request Append Path : ${request.path}`)
+        Logger.debug(`[DASS]: [appendPath]: ended`)
       }
     }
   }
 
   // Verify the response 
-  verifyResponse(expectedResponse: any, response: any, responseObj: any) {
-    Logger.debug(`verifyResponse method called`)
-    Logger.debug(`Expected Response : ${JSON.stringify(expectedResponse)}`)
-    Logger.debug(`DASS API Response : ${JSON.stringify(response)}`)
-    Logger.debug(`DASS API Response Object : ${JSON.stringify(responseObj)}`)
+  verifyResponse(expectedResponse: TestResponse, response: Response, responseObj: any) {
+    Logger.debug(`[DASS]: [verifyResponse]: called`);
+    Logger.debug(`[DASS]: [verifyResponse]: Expected Response: ${JSON.stringify(expectedResponse)}`)
+    Logger.debug(`[DASS]: [verifyResponse]: DASS API Response: ${JSON.stringify(response)}`)
+    Logger.debug(`[DASS]: [verifyResponse]: DASS API Response Object: ${JSON.stringify(responseObj)}`)
     // Ignore the teststep result whatever the test response from an API
     if (expectedResponse.ignore) {
-      return true
+      return true;
     }
 
     // Verify response status
@@ -136,12 +144,13 @@ export class DASS {
 
     // Verify response properties
     let result = this.verifyResponseProperty(expectedResponse, responseObj);
+    Logger.debug(`[DASS]: [verifyResponse]: ended`)
     return result;
   }
 
   // Verify the reponse property
-  verifyResponseProperty(expectedResponse: any, responseObj: any) {
-    Logger.debug(`verifyResponseProperty method called`)
+  verifyResponseProperty(expectedResponse: TestResponse, responseObj: any) {
+    Logger.debug(`[DASS]: [verifyResponseProperty]: called`);
     if (!_.isUndefined(expectedResponse.responseProperty) && !_.isUndefined(expectedResponse.responseProperty[0]) && _.isObject(responseObj)) {
 
       for (let i = 0; i < expectedResponse.responseProperty.length; i = i + 2) {
@@ -156,23 +165,26 @@ export class DASS {
           return false
         }
       }
+      Logger.debug(`[DASS]: [verifyResponseProperty]: ended`);
       return true
     }
   }
 
   // Save the response
-  saveResponse(expectedResponse: any, responseObj: any) {
-    Logger.debug(`saveResponse method called`)
+  saveResponse(expectedResponse: TestResponse, responseObj: any) {
+    Logger.debug(`[DASS: [saveResponse]: called`);
     if (!_.isUndefined(expectedResponse) && !_.isUndefined(expectedResponse.saveResponseAsVariable)) {
-      Logger.debug(`expectedResponse saveResponseAsVariable : ${expectedResponse.saveResponseAsVariable}`)
+      Logger.debug(`[DASS: [saveResponse]: expectedResponse saveResponseAsVariable: ${expectedResponse.saveResponseAsVariable}`)
       this.saveResVar[expectedResponse.saveResponseAsVariable] = responseObj
     }
+    Logger.debug(`[DASS: [saveResponse]: ended`);
   }
 
   // Create payload for request
-  createPayload(request: any) {
+  createPayload(request: TestRequest) {
+    Logger.debug(`[DASS]: [createPayload]: called`);
     if (!_.isUndefined(request.createPayload)) {
-      Logger.debug(`Request CreatePayload : ${request.createPayload}`);
+      Logger.debug(`[DASS]: [createPayload]: Request CreatePayload: ${request.createPayload}`);
       if (!_.isUndefined(request.createPayload.source) && !_.isUndefined(request.createPayload.replacement)) {
         // Pick the source from saved response
         if (_.isString(request.createPayload.source.replaceFrom)) {
@@ -202,32 +214,32 @@ export class DASS {
 
         request.payload = Utils.createPayload(request.createPayload);
 
-        Logger.debug(`create payload output : ${JSON.stringify(request.payload)}`)
-
+        Logger.debug(`[DASS]: [createPayload]: create payload output: ${JSON.stringify(request.payload)}`)
+        Logger.debug(`[DASS]: [createPayload]: ended`);
       }
     }
   }
 
   // Set the user basic auth from dass rest api call
-  setLogin(request: any) {
-
+  setLogin(request: TestRequest) {
+    Logger.debug(`[DASS]: [setLogin]: called`);
     // Check request login username and password is not undefined
     if (!_.isUndefined(request) && !_.isUndefined(request.login) &&
-      !_.isUndefined(request.login.userid) && !_.isUndefined(request.login.password)) {
-      this.username = request.login.userid;
+      !_.isUndefined(request.login.userID) && !_.isUndefined(request.login.password)) {
+      this.username = request.login.userID;
       this.password = request.login.password
       // Check request login forward
-    } else if (!_.isUndefined(request) && !_.isUndefined(request.loginforward) && !_.isUndefined(this.saveResVar[request.loginforward]) && !_.isUndefined(this.saveResVar[request.loginforward][0]) && !_.isUndefined(this.saveResVar[request.loginforward][0].ownerid)) {
-      Logger.debug(`Login Forward ${this.username}/${this.saveResVar[request.loginforward][0].ownerid}`)
-      this.username = `${this.username}/${this.saveResVar[request.loginforward][0].ownerid}`
+    } else if (!_.isUndefined(request) && !_.isUndefined(request.loginForward) && !_.isUndefined(this.saveResVar[request.loginForward]) && !_.isUndefined(this.saveResVar[request.loginForward][0]) && !_.isUndefined(this.saveResVar[request.loginForward][0].ownerID)) {
+      Logger.debug(`[DASS]: [setLogin]: Login Forward ${this.username}/${this.saveResVar[request.loginForward][0].ownerID}`)
+      this.username = `${this.username}/${this.saveResVar[request.loginForward][0].ownerID}`
       // Set the orbiwise username and password for basic auth
     } else {
       this.username = this.gUsername
       this.password = this.gPassword
     }
 
-    Logger.debug(`DASS API login set to username: ${this.username} password: ${this.password}`)
-
+    Logger.debug(`[DASS]: [setLogin]: DASS API login set to username: ${this.username} password: ${this.password}`)
+    Logger.debug(`[DASS]: [setLogin]: ended`);
   }
 
 }

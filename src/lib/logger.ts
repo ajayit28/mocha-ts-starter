@@ -18,35 +18,56 @@ const colors = {
   error: 'red',
   warn: 'yellow',
   info: 'green',
-  debug: 'white',
+  debug: 'white'
 }
 
 winston.addColors(colors)
 
 const format = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
-  winston.format.colorize({ all: true }),
+  // winston.format.colorize({ all: true }),
   winston.format.printf(
-    (info) => `${info.timestamp} ${info.level}: ${info.message}`,
+    (info) => `[${info.timestamp}] ${info.message}`,
   ),
 )
 
 const transports = [
-  new winston.transports.Console(),
   new winston.transports.File({
     filename: 'logs/error.log',
     level: 'error',
-    maxFiles: 5, 
-    maxsize: 10
+    maxFiles: 5242880, 
+    maxsize: 5
   }),
-  new winston.transports.File({ filename: 'logs/log.log', maxFiles: 5, maxsize: 10  }),
+  new winston.transports.File({ filename: 'logs/log.log', maxFiles: 5, maxsize: 5242880  }),
 ]
 
-const Logger = winston.createLogger({
+export const Logger = winston.createLogger({
   level: level(),
   levels,
   format,
   transports,
 })
+// addConsoleTransports();
+// setLogLevel('debug');
 
-export default Logger
+export function addConsoleTransports() {
+  Logger.add(new winston.transports.Console({ format: winston.format.combine(
+    winston.format.colorize({
+        all: true
+    })) }));
+}
+
+export function setLogLevel(level: string) {
+  Logger.level = level;
+}
+
+const testRunTransports = [
+  new winston.transports.File({ filename: `logs/testrun_${new Date().toISOString()}_deveui_region.log`, maxFiles: 5, maxsize: 5242880  }),
+]
+
+export const TestRunLogger = winston.createLogger({
+  level: level(),
+  levels,
+  format,
+  transports: testRunTransports
+})

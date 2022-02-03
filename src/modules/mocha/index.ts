@@ -1,6 +1,7 @@
 import MochaTest, {TestFunction}  from 'mocha'
-import Logger from '../../lib/logger';
+import {Logger} from '../../lib/logger';
 import boxen from 'boxen';
+import path from 'path';
 
 export class Mocha {
   mochaTest: MochaTest;
@@ -20,24 +21,27 @@ export class Mocha {
   }
 
   start() {
-    this.mochaTest.addFile('./modules/mocha/test-run.js')
+    Logger.debug(`[MOCHA]: [start()]: addFile test-run.js`);
+    this.mochaTest.addFile(path.resolve(__dirname, './test-run.js'))
 
     this.mochaTest.run()
     .on('start', ()=> {
-      Logger.info(`Test Start Time: ${new Date().toISOString()}`);
+      Logger.debug(`[MOCHA]: [on start]: testing started`);
     })
     .on('test', (test: TestFunction) => {
-      Logger.info(`test in progress`);
+      Logger.debug(`[MOCHA]: [on test]: ${test.name} in progress`);
     })
     .on('pass', (test: TestFunction) => {
       this.passes++
-      Logger.info(`Passes: ${this.passes}`)
+      Logger.debug(`[MOCHA]: [on pass]: ${test.name} passed`);
+      
     })
     .on('fail', (test: TestFunction) => {
       this.failures;
-      Logger.info(`Failures: ${this.failures}`)
+      Logger.debug(`[MOCHA]: [on fail]: ${test.name} failed`);
     })
     .on('end', (test: TestFunction) => {
+      Logger.debug(`[MOCHA]: [on end]: testing ended`);
       console.log(boxen(`
       Total TestCases: ${this.passes + this.failures}
       Passes: ${this.passes}

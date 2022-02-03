@@ -2,6 +2,7 @@
 
 import { Mocha } from './modules/mocha';
 
+// Start Mocha test runner
 let mocha = new Mocha();
 mocha.start();
 
